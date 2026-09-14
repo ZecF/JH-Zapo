@@ -5,10 +5,10 @@
  * app.js — FionyVerse entry point.
  * Jantung bot! Hati2 dlm mengubah file ini!
  */
-
 import { createMediaWsServer } from './src/ws/mediaServer.js'
 import { createStore, WaClient } from 'zapo-js'
 import { createSqliteStore } from '@zapo-js/store-sqlite'
+import { createMediaProcessor } from '@zapo-js/media-utils'
 import { createInterface } from 'node:readline'
 import fs from 'node:fs'
 import config from './config.js'
@@ -139,7 +139,13 @@ const client = new WaClient(
     sessionId: 'default',
     connectTimeoutMs: 15_000,
     nodeQueryTimeoutMs: 30_000,
-    history: { enabled: true, requireFullSync: true }
+    history: { enabled: true, requireFullSync: true },
+    media: {
+      processor: createMediaProcessor(),
+      generateThumbnail: true,
+      generateWaveform: true,
+      normalizeVoiceNote: true
+    }
   },
   clientLogger
 )
@@ -150,7 +156,6 @@ async function main() {
   setupErrorHandler()
   await loadFeatures()
 
-  // WS media proxy (pola Ryuu) — diangkat ke audio.jhx.my.id via cloudflared tunnel
   createMediaWsServer({
     port: Number(config.wsPort || 8090),
     path: config.wsPath || '/wss/audio'

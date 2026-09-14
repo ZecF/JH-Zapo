@@ -5,6 +5,8 @@
  * app.js — FionyVerse entry point.
  * Jantung bot! Hati2 dlm mengubah file ini!
  */
+
+import { createMediaWsServer } from './src/ws/mediaServer.js'
 import { createStore, WaClient } from 'zapo-js'
 import { createSqliteStore } from '@zapo-js/store-sqlite'
 import { createInterface } from 'node:readline'
@@ -46,10 +48,8 @@ function setupOwnerMetaHandler(client) {
       const alt = event.key.participantAlt ?? event.key.remoteJidAlt
       const pnJid = primary?.endsWith('@lid') ? (alt ?? primary) : primary
       const senderNumber = (pnJid ?? '').split('@')[0].split(':')[0]
-      const lidJid = primary?.endsWith('@lid') ? primary : alt?.endsWith('@lid') ? alt : undefined
 
-      // [UPDATE] ✅ Cek staff via PN, fallback via LID (owner ber-username)
-      const staffEntry = getStaffEntry(senderNumber, lidJid)
+      const staffEntry = getStaffEntry(senderNumber)
       if (staffEntry?.role !== 'owner') {
         logger.warn(`meta: ditolak — +${senderNumber} bukan owner`)
         return
@@ -149,6 +149,13 @@ async function main() {
 
   setupErrorHandler()
   await loadFeatures()
+
+  // WS media proxy (pola Ryuu) — diangkat ke audio.jhx.my.id via cloudflared tunnel
+  createMediaWsServer({
+    port: Number(config.wsPort || 8090),
+    path: config.wsPath || '/wss/audio'
+  })
+
   setupHotReload(client)
   setupConnection(client)
   setupGroupHandler(client)
