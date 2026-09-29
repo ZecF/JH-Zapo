@@ -5,6 +5,7 @@ node_modules/
 npm-debug.log*
 .DS_Store
 src/clients/
+/cache/
 config/
 scraper/
 session/

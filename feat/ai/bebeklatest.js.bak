@@ -4,20 +4,17 @@
  * Hargai sebagaimana u mau dihargai.
  * bebek.js — FITUR AI STAND-ALONE penuh via Duck.ai (GPT-5.6 Luna dkk)
  *
- * v4 — FIX FORCE CLOSE PERMANEN:
- *  FC terbukti BUKAN karena ukuran payload, tapi karena editReplace yang
- *  GANTI JENIS payload rich: bubble thinking (unified, udah nge-render
- *  kartu GenAI) diedit jadi submessages → client kecekik → FC
- *  (bukti: metatest V5 edit kecil tetep FC; jhrich edit same-kind aman).
- *  Maka: JANGAN pernah edit bubble thinking.
- *  Alur sekarang: thinking shimmer → jawaban dikirim bubble BARU
- *  (sendRich proven) → bubble thinking di-REVOKE (protocol standar, aman).
+ * [UPDATE AND FIX BELOW]
+ * v2: THINKING SHIMMER PROVEN — sebelum engine jawab, Bebek kirim
+ * status "sedang berpikir..." (GenAIBotProgressStatusPrimitive),
+ * terus di-REPLACE jadi jawaban rich (code/tabel/teks) via editReplace.
+ * Kalau replace gagal → fallback sendRich biasa (gak ada yang hilang).
  */
 
 import { duckAiChat, fetchDuckAiModels, DUCKAI_DEFAULT_MODEL } from '../../src/clients/duckai.js';
 import { tokenize, LANGS } from '../../lib/highlight.js';
 import { downloadMediaMessage, resolveMediaPayload } from 'zapo-js';
-import { sendThinking } from '../../lib/jhai.js';
+import { sendThinking, editReplace, buildSubContent } from '../../lib/jhai.js';
 
 const MAX_CODE = 60000;
 const MAX_TEXT = 3500;
@@ -25,7 +22,7 @@ const MEM = (globalThis.JH_BEBEK_MEM ??= new Map());
 const MODEL_CHOICE = (globalThis.JH_BEBEK_MODEL ??= new Map());
 const MEM_CAP = 8;
 
-const BEBEK_PERSONA = `Kamu adalah Bebek, asisten AI santai nan gaul yang ditenagai Duck.ai. Kamu memiliki sifat ceria, ramah, asik, seru untuk diajak ngobrol, tetapi dapat serius juga sesuai konteks user, utamakan sifat sikap ceria dan ramah dirimu dahulu.
+const BEBEK_PERSONA = `Kamu adalah Bebek, asisten AI santai nan gaul yang ditenagai Duck.ai dan dikembangkan oleh owner kamu yang bernama JamvanHax0r alias JH alias Dhika. Kamu memiliki sifat ceria, ramah, asik, seru untuk diajak ngobrol, tetapi dapat serius juga sesuai konteks user, utamakan sifat sikap ceria dan ramah dirimu dahulu ke user.
 Gaya: bahasa Indonesia gaul natural (lo-gue / aku-kamu sesuai konteks), emoji seperlunya, jangan kaku.
 Kalau diminta kode, SELALU bungkus dalam code fence \`\`\`bahasa agar sistem bisa merender code block berwarna.
 Kalau diminta tabel, SELALU pakai markdown table (| kolom |).
@@ -154,9 +151,10 @@ function extractTables(text) {
       buf = [];
       const rows = tbl.filter((l) => !isSepLine(l)).map(splitRow);
       if (rows.length >= 2) out.push({ type: 'table', rows });
-      else out.push({ type: 'text', text: rows.map((r) => r.join(' | ')).join('\n') });
+      else pushTextRows();
     } else buf.push(...tbl);
     tbl = [];
+    function pushTextRows() { out.push({ type: 'text', text: rows.map((r) => r.join(' | ')).join('\n') }); }
   };
   for (const line of text.split('\n')) {
     if (isRowLine(line)) tbl.push(line);
@@ -298,7 +296,7 @@ export default {
 
     await ctx.react('🦆');
 
-    // ===== THINKING SHIMMER (proven + bypass-edit instan) =====
+    // ===== THINKING SHIMMER (proven): kirim dulu, replace belakangan =====
     let thinkId = null;
     try {
       const t = await sendThinking(ctx, '🦆 Bebek sedang berpikir...');
@@ -378,20 +376,18 @@ export default {
       }
       submessages.push({ messageType: 2, messageText: FOOTER });
 
-      // ===== KIRIM ANTI-FC: jawaban bubble BARU, lalu revoke thinking =====
-      // NOL editReplace ke bubble thinking (penyebab FC terbukti).
-      await sendRich(ctx, submessages);
-
+      // ===== KIRIM: replace thinking dulu, fallback sendRich =====
+      let delivered = false;
       if (thinkId) {
         try {
-          await ctx.client.message.send(ctx.chat, {
-            type: 'revoke',
-            target: { remoteJid: ctx.chat, id: thinkId, fromMe: true }
-          });
+          await editReplace(ctx, thinkId, buildSubContent(submessages));
+          delivered = true;
+          console.log('[Bebek] thinking → jawaban via editReplace OK | id=' + thinkId);
         } catch (e) {
-          console.log('[Bebek] revoke thinking fail:', String(e?.message || e).slice(0, 120));
+          console.log('[Bebek] editReplace fail, fallback sendRich:', String(e?.message || e).slice(0, 120));
         }
       }
+      if (!delivered) await sendRich(ctx, submessages);
 
       // ===== KIRIM GAMBAR HASIL GENERATE ke WA =====
       for (const g of preparedImages) {

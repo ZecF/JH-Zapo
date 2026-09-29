@@ -2,46 +2,51 @@
  * © JamvanHax0r — Fiony Bot
  * Hapus credit gak bikin u jago dumbass.
  * Hargai sebagaimana u mau dihargai.
- * ig.js — Instagram Downloader (video + image + carousel, mixed media LENGKAP)
+ * threads.js — Threads Downloader
  */
 
-import { JHIGDL } from '../../scraper/IG-DL.js'
+import { JHThreadsDL } from '../../scraper/THREADS.js'
 import { sendCarousel } from '../../lib/carousel.js'
 import { onRichReply } from '../../handlers/messageHandler.js'
 
-const IG_URL_REGEX = /https?:\/\/(www\.)?(instagram\.com|instagr\.am)\/[^\s]+/i
+const THREADS_URL_REGEX = /https?:\/\/(www\.)?(threads\.com|threads\.net)\/[^\s]+/i
 
 function extractUrl(ctx) {
   const text = (ctx.text || '').trim()
-  const match = text.match(IG_URL_REGEX)
+  const match = text.match(THREADS_URL_REGEX)
   if (match) return match[0]
 
   const quoted = ctx.message?.extendedTextMessage?.contextInfo?.quotedMessage
   const quotedText = quoted?.conversation || quoted?.extendedTextMessage?.text || ''
-  const quotedMatch = quotedText.match(IG_URL_REGEX)
+  const quotedMatch = quotedText.match(THREADS_URL_REGEX)
   if (quotedMatch) return quotedMatch[0]
 
   return null
 }
 
-function formatCaption(data, url, opts) {
-  const videos = data.filter(d => d.type === 'video').length
-  const images = data.filter(d => d.type === 'image').length
+function cleanCaption(value, max = 150) {
+  if (!value) return ''
+  const clean = String(value).replace(/\s+/g, ' ').trim()
+  return clean.length > max ? clean.slice(0, max) + '…' : clean
+}
 
-  const mediaBreakdown = []
-  if (videos) mediaBreakdown.push(`- *Video:* _${videos}_`)
-  if (images) mediaBreakdown.push(`- *Image:* _${images}_`)
+function formatCaption(data, url, opts) {
+  const videos = data.media.filter(d => d.type === 'video').length
+  const images = data.media.filter(d => d.type === 'image').length
+  const captionPost = cleanCaption(data.caption)
 
   const contentInfo = [
-    `- *Total Media:* _${data.length}_`,
-    ...mediaBreakdown,
-    `- *Source:* _Instagram_`,
+    `- *User:* _@${data.username || 'Unknown'}_`,
+    ...(captionPost ? [`- *Caption:* _${captionPost}_`] : []),
+    `- *Total Media:* _${data.media.length}_`,
+    ...(videos ? [`- *Video:* _${videos}_`] : []),
+    ...(images ? [`- *Image:* _${images}_`] : []),
     `- *Link:* _${url}_`
   ]
 
   let instruction
   if (opts.useCarousel && videos) {
-    instruction = '👇🏻 *Geser carousel untuk semua image.*\n🎬 *Video dikirim terpisah setelah carousel.*'
+    instruction = '👇 *Geser carousel untuk semua image.*\n🎬 *Video dikirim terpisah setelah carousel.*'
   } else if (opts.useCarousel) {
     instruction = '👇 *Scroll dan geser untuk melihat semua image.*'
   } else if (images === 1 && videos) {
@@ -49,14 +54,14 @@ function formatCaption(data, url, opts) {
   } else if (videos && !images) {
     instruction = videos > 1
       ? '🎬 *Video dikirim berurutan.*'
-      : '🎬 *Video Instagram siap didownload.*'
+      : '🎬 *Video Threads siap didownload.*'
   } else {
-    instruction = '🖼️ *Single image Instagram.*'
+    instruction = '🖼️ *Single image Threads.*'
   }
 
   return [
     [
-      '┌───「 📸 *INSTAGRAM DOWNLOADER* 」───┐',
+      '┌───「 🧵 *THREADS DOWNLOADER* 」───┐',
       '',
       ...contentInfo,
       '',
@@ -103,43 +108,43 @@ async function sendSingleImage(ctx, media, caption) {
   })
 }
 
-async function sendCarouselImages(ctx, images, totalImages, url, caption) {
+async function sendCarouselImages(ctx, images, totalImages, url, username, caption) {
   const cards = images.map((img, index) => ({
-    imageUrl: img.thumbnail || img.url,
+    imageUrl: img.thumbnail && !/\.mp4/i.test(img.thumbnail) ? img.thumbnail : img.url,
     body: [
       `*Image ${index + 1} dari ${totalImages}*`,
       '',
-      '🖼️ Image Instagram'
+      '🧵 Threads post'
     ].join('\n'),
-    footer: '📸 Instagram',
+    footer: `🧵 @${username || 'Unknown'}`,
     buttons: [
-      { type: 'url', displayText: '🌐 Buka di Instagram', url },
-      { type: 'reply', displayText: '📋 Menu', id: 'rich:ig-menu' }
+      { type: 'url', displayText: '🌐 Buka di Threads', url },
+      { type: 'reply', displayText: '📋 Menu', id: 'rich:threads-menu' }
     ]
   }))
 
   await sendCarousel(ctx, { text: caption, cards })
 }
 
-onRichReply('rich:ig-menu', async (ctx) => {
+onRichReply('rich:threads-menu', async (ctx) => {
   await ctx.reply(
     [
       '📋 *Menu Cepat*',
       '',
+      '• `.threads <link>` — Threads downloader',
       '• `.tiktok <link>` — TikTok downloader',
       '• `.ig <link>` — Instagram downloader',
-      '• `.getpp @user` — Ambil PP user',
-      '• `.menu` — Menu lengkap',
+      '• `.menu all` — Menu lengkap',
       '• `.ping` — Cek status bot'
     ].join('\n')
   )
 })
 
 export default {
-  name: 'ig',
-  aliases: ['igdl', 'instagram'],
+  name: 'threads',
+  aliases: ['thread', 'threadsdl'],
   tags: 'downloader',
-  description: 'Downloader Instagram',
+  description: 'Downloader Threads',
 
   async run(ctx) {
     const url = extractUrl(ctx)
@@ -147,19 +152,19 @@ export default {
     if (!url) {
       return ctx.reply(
         [
-          '📸 *INSTAGRAM DOWNLOADER*',
+          '🧵 *THREADS DOWNLOADER*',
           '',
-          '- Kirim link Instagram',
-          '- Atau reply pesan yang berisi link Instagram',
+          '- Kirim link Threads',
+          '- Atau reply pesan yang berisi link Threads',
           '',
           '*Supported:*',
-          '- Reel / Video (semua video dikirim)',
+          '- Video (semua video dikirim)',
           '- Single image post',
           '- Carousel multi-image',
           '- Post campuran image + video',
           '',
           '*Contoh:*',
-          '`.ig https://www.instagram.com/p/DZcugj-ICJF/`'
+          '`.threads https://www.threads.com/share/BAbGGHk6r5/`'
         ].join('\n')
       )
     }
@@ -168,20 +173,20 @@ export default {
 
     let result
     try {
-      result = await JHIGDL(url)
+      result = await JHThreadsDL(url)
     } catch (e) {
       await ctx.react('❎')
       return ctx.reply('❌ Gagal scrape: ' + String(e.message || e).slice(0, 200))
     }
 
-    if (!result.success) {
+    if (!result.status) {
       await ctx.react('❎')
-      return ctx.reply('❌ Gagal download: ' + (result.message || 'Unknown error'))
+      return ctx.reply('❌ Gagal download: ' + (result.error || 'Unknown error'))
     }
 
     const data = result.data
-    const videos = data.filter(d => d.type === 'video')
-    const images = data.filter(d => d.type === 'image')
+    const videos = data.media.filter(d => d.type === 'video')
+    const images = data.media.filter(d => d.type === 'image')
     const useCarousel = images.length >= 2
 
     try {
@@ -203,11 +208,12 @@ export default {
           cardImages,
           images.length,
           url,
+          data.username,
           nextCaption(videos.length ? '🎬 *Video dikirim terpisah setelah carousel.*' : '')
         )
 
         for (let i = 25; i < images.length; i++) {
-          await sendSingleImage(ctx, images[i], `🖼️ Image ${i + 1}/${images.length} • 📸 Instagram`)
+          await sendSingleImage(ctx, images[i], `🖼️ Image ${i + 1}/${images.length} • 🧵 Threads`)
         }
       } else if (images.length === 1) {
         await sendSingleImage(ctx, images[0], nextCaption(''))
@@ -215,8 +221,8 @@ export default {
 
       for (let i = 0; i < videos.length; i++) {
         const extra = videos.length > 1
-          ? `🎬 *Video ${i + 1}/${videos.length}* • 📸 Instagram`
-          : '🎬 *Video Instagram* • 📸 Instagram'
+          ? `🎬 *Video ${i + 1}/${videos.length}* • 🧵 Threads`
+          : '🎬 *Video Threads* • 🧵 Threads'
         await sendVideo(ctx, videos[i], nextCaption(extra))
       }
 

@@ -9,10 +9,12 @@
     "dev": "node --watch app.js"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.9",
     "@zapo-js/media-utils": "^1.0.0",
     "@zapo-js/store-sqlite": "latest",
     "axios": "^1.20.0",
     "better-sqlite3": "latest",
+    "cheerio": "^1.2.0",
     "chokidar": "^5.0.0",
     "file-type": "^22.0.2",
     "node-webpmux": "^3.2.1",

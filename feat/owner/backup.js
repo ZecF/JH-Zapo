@@ -13,7 +13,7 @@ import { logger } from '../../core/logger.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = join(__dirname, '..', '..')
 
-const EXCLUDES = ['node_modules/*', '.git/*', 'logs/*', '*.log', 'session/state.sqlite*', '.env*']
+const EXCLUDES = ['node_modules/*', '.git/*', 'logs/*', '*.log', 'session/state.sqlite*', '.env*', 'cache/*']
 
 function runShell(cmd, cwd) {
   return new Promise((resolve, reject) => {

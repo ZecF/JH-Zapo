@@ -5,6 +5,7 @@
  * app.js — FionyVerse entry point.
  * Jantung bot! Hati2 dlm mengubah file ini!
  */
+
 import { createMediaWsServer } from './src/ws/mediaServer.js'
 import { createStore, WaClient } from 'zapo-js'
 import { createSqliteStore } from '@zapo-js/store-sqlite'
@@ -23,6 +24,7 @@ import { setupGroupHandler } from './handlers/groupHandler.js'
 import { setupErrorHandler } from './handlers/errorHandler.js'
 import { checkAntilink } from './handlers/antilinkHandler.js'
 import { checkGameAnswer } from './handlers/gameHandler.js'
+import { checkMenfessReply } from './handlers/menfessHandler.js'
 import { normalizeNumber, getStaffEntry } from './core/staff.js'
 import { maintenance } from './core/rpg.js'
 import { runEval } from './core/evalRunner.js'
@@ -46,12 +48,18 @@ function setupOwnerMetaHandler(client) {
 
       const primary = event.key.participant ?? event.key.remoteJid
       const alt = event.key.participantAlt ?? event.key.remoteJidAlt
-      const pnJid = primary?.endsWith('@lid') ? (alt ?? primary) : primary
-      const senderNumber = (pnJid ?? '').split('@')[0].split(':')[0]
 
-      const staffEntry = getStaffEntry(senderNumber)
+      const lidJid = primary?.endsWith('@lid') ? primary : (alt?.endsWith('@lid') ? alt : null)
+      const pnJid = primary?.endsWith('@lid') ? alt : primary
+
+      const senderNumber = pnJid ? pnJid.split('@')[0].split(':')[0] : ''
+
+      const staffEntry = getStaffEntry(senderNumber, lidJid)
+
+      logger.info({ primary, alt, lidJid, pnJid, senderNumber, matched: !!staffEntry }, 'meta: debug owner check')
+
       if (staffEntry?.role !== 'owner') {
-        logger.warn(`meta: ditolak — +${senderNumber} bukan owner`)
+        logger.warn(`meta: ditolak — +${senderNumber || lidJid || 'unknown'} bukan owner`)
         return
       }
 
@@ -173,6 +181,7 @@ async function main() {
   client.on('message', (event) => {
     void checkAntilink(client, event)
     void checkGameAnswer(client, event)
+    void checkMenfessReply(client, event)
     route(client, event).catch((err) => logger.error({ err }, 'Gagal memproses pesan'))
   })
 

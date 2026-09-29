@@ -3,23 +3,18 @@
  * Hapus credit gak bikin u jago dumbass.
  * Hargai sebagaimana u mau dihargai.
  * bebek.js — FITUR AI STAND-ALONE penuh via Duck.ai (GPT-5.6 Luna dkk)
- *
- * v4 — FIX FORCE CLOSE PERMANEN:
- *  FC terbukti BUKAN karena ukuran payload, tapi karena editReplace yang
- *  GANTI JENIS payload rich: bubble thinking (unified, udah nge-render
- *  kartu GenAI) diedit jadi submessages → client kecekik → FC
- *  (bukti: metatest V5 edit kecil tetep FC; jhrich edit same-kind aman).
- *  Maka: JANGAN pernah edit bubble thinking.
- *  Alur sekarang: thinking shimmer → jawaban dikirim bubble BARU
- *  (sendRich proven) → bubble thinking di-REVOKE (protocol standar, aman).
+ * Quote handling: proven pattern tourl.js (resolveMediaPayload + downloadMediaMessage)
+ * VISION FIX: image part di-re-encode ke webp + max 1024px (sesuai pola sourcenya brayy)
+ * IMAGE GEN: nangkep b64Image dari stream ui-component GenerateImage, kirim sebagai image WA
+ * FIX DIMENSI: baca width/height ASLI dari buffer via sharp (metadata DDG suka mislabel)
+ * FINAL TOUCH: MAX_CODE 60000 (limit WA ~65.536 char) — bye bye notif "terpotong"
  */
 
 import { duckAiChat, fetchDuckAiModels, DUCKAI_DEFAULT_MODEL } from '../../src/clients/duckai.js';
 import { tokenize, LANGS } from '../../lib/highlight.js';
 import { downloadMediaMessage, resolveMediaPayload } from 'zapo-js';
-import { sendThinking } from '../../lib/jhai.js';
 
-const MAX_CODE = 60000;
+const MAX_CODE = 60000; // limit WA ~65.536 char per pesan — code block luwes sampe 60k
 const MAX_TEXT = 3500;
 const MEM = (globalThis.JH_BEBEK_MEM ??= new Map());
 const MODEL_CHOICE = (globalThis.JH_BEBEK_MODEL ??= new Map());
@@ -32,7 +27,7 @@ Kalau diminta tabel, SELALU pakai markdown table (| kolom |).
 Jangan hallucinate; kalau gak yakin bilang jujur.
 JANGAN pakai tag <citation> atau markup aneh lainnya di jawaban.`;
 
-// ===== QUOTE HANDLING (proven ala tourl.js) =====
+// ===== [FIX] QUOTE HANDLING (proven ala tourl.js) =====
 function getEvent(ctx) {
   return ctx.message ?? ctx.event ?? ctx.raw ?? ctx.msg ?? null;
 }
@@ -76,7 +71,7 @@ async function extractImage(ctx) {
   }
 }
 
-// ===== VISION FIX =====
+// ===== VISION FIX: samain kaya sourcenye langsung (webp + max 1024px) =====
 async function toImagePart(raw) {
   if (!raw) return null;
   let buf = raw.buf;
@@ -96,7 +91,7 @@ async function toImagePart(raw) {
   return part;
 }
 
-// ===== FORMATTER =====
+// ===== [UPDATE] FORMATTER: markdown mentah -> format WA yang rapi =====
 function cleanMarkdown(t) {
   return String(t)
     .replace(/<citation[^>]*>\s*<\/citation>/gi, '')
@@ -154,7 +149,6 @@ function extractTables(text) {
       buf = [];
       const rows = tbl.filter((l) => !isSepLine(l)).map(splitRow);
       if (rows.length >= 2) out.push({ type: 'table', rows });
-      else out.push({ type: 'text', text: rows.map((r) => r.join(' | ')).join('\n') });
     } else buf.push(...tbl);
     tbl = [];
   };
@@ -214,7 +208,7 @@ function sendRich(ctx, submessages) {
   }, { additionalAttributes: { type: 'text' } });
 }
 
-// ===== FIX DIMENSI =====
+// ===== [FIX DIMENSI] decode b64 + baca dimensi ASLI dari buffer via sharp =====
 async function prepareGeneratedImages(genImages) {
   const out = [];
   for (const g of genImages) {
@@ -298,15 +292,6 @@ export default {
 
     await ctx.react('🦆');
 
-    // ===== THINKING SHIMMER (proven + bypass-edit instan) =====
-    let thinkId = null;
-    try {
-      const t = await sendThinking(ctx, '🦆 Bebek sedang berpikir...');
-      thinkId = t?.id || t?.key?.id || null;
-    } catch (e) {
-      console.log('[Bebek] sendThinking gagal:', String(e?.message || e).slice(0, 120));
-    }
-
     try {
       const model = MODEL_CHOICE.get(ctx.sender) || DUCKAI_DEFAULT_MODEL;
       const hist = MEM.get(ctx.sender) || [];
@@ -342,7 +327,7 @@ export default {
         messageText: '🦆 *BEBEK AI* — _' + (hasImage ? 'Vision Mode' : 'Chat Mode') + '_\n⚙️ ' + model
       });
 
-      // ===== IMAGE GEN note =====
+      // ===== IMAGE GEN note (dimensi ASLI dari buffer) =====
       if (preparedImages.length) {
         const g = preparedImages[0];
         submessages.push({
@@ -378,20 +363,7 @@ export default {
       }
       submessages.push({ messageType: 2, messageText: FOOTER });
 
-      // ===== KIRIM ANTI-FC: jawaban bubble BARU, lalu revoke thinking =====
-      // NOL editReplace ke bubble thinking (penyebab FC terbukti).
       await sendRich(ctx, submessages);
-
-      if (thinkId) {
-        try {
-          await ctx.client.message.send(ctx.chat, {
-            type: 'revoke',
-            target: { remoteJid: ctx.chat, id: thinkId, fromMe: true }
-          });
-        } catch (e) {
-          console.log('[Bebek] revoke thinking fail:', String(e?.message || e).slice(0, 120));
-        }
-      }
 
       // ===== KIRIM GAMBAR HASIL GENERATE ke WA =====
       for (const g of preparedImages) {
