@@ -10,5 +10,9 @@ config/
 scraper/
 session/
 logs/
+igfix.js
+jhig.js
+jhstory.js
+jhspot.js
 *.log
 *.backup
