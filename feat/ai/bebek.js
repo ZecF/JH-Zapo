@@ -3,15 +3,6 @@
  * Hapus credit gak bikin u jago dumbass.
  * Hargai sebagaimana u mau dihargai.
  * bebek.js — FITUR AI STAND-ALONE penuh via Duck.ai (GPT-5.6 Luna dkk)
- *
- * v4 — FIX FORCE CLOSE PERMANEN:
- *  FC terbukti BUKAN karena ukuran payload, tapi karena editReplace yang
- *  GANTI JENIS payload rich: bubble thinking (unified, udah nge-render
- *  kartu GenAI) diedit jadi submessages → client kecekik → FC
- *  (bukti: metatest V5 edit kecil tetep FC; jhrich edit same-kind aman).
- *  Maka: JANGAN pernah edit bubble thinking.
- *  Alur sekarang: thinking shimmer → jawaban dikirim bubble BARU
- *  (sendRich proven) → bubble thinking di-REVOKE (protocol standar, aman).
  */
 
 import { duckAiChat, fetchDuckAiModels, DUCKAI_DEFAULT_MODEL } from '../../src/clients/duckai.js';
@@ -32,7 +23,6 @@ Kalau diminta tabel, SELALU pakai markdown table (| kolom |).
 Jangan hallucinate; kalau gak yakin bilang jujur.
 JANGAN pakai tag <citation> atau markup aneh lainnya di jawaban.`;
 
-// ===== QUOTE HANDLING (proven ala tourl.js) =====
 function getEvent(ctx) {
   return ctx.message ?? ctx.event ?? ctx.raw ?? ctx.msg ?? null;
 }
@@ -76,7 +66,6 @@ async function extractImage(ctx) {
   }
 }
 
-// ===== VISION FIX =====
 async function toImagePart(raw) {
   if (!raw) return null;
   let buf = raw.buf;
@@ -96,7 +85,6 @@ async function toImagePart(raw) {
   return part;
 }
 
-// ===== FORMATTER =====
 function cleanMarkdown(t) {
   return String(t)
     .replace(/<citation[^>]*>\s*<\/citation>/gi, '')
@@ -113,7 +101,6 @@ function cleanMarkdown(t) {
     .trim();
 }
 
-// ===== rich builders =====
 function codeSubmessage(code, lang) {
   let src = code;
   let truncated = false;
@@ -214,7 +201,6 @@ function sendRich(ctx, submessages) {
   }, { additionalAttributes: { type: 'text' } });
 }
 
-// ===== FIX DIMENSI =====
 async function prepareGeneratedImages(genImages) {
   const out = [];
   for (const g of genImages) {
@@ -253,7 +239,6 @@ export default {
   async run(ctx) {
     const query = (ctx.text || '').trim();
 
-    // ===== models switcher =====
     if (/^models?$/i.test(query)) {
       const models = await fetchDuckAiModels();
       const rows = [[ 'Model ID', 'Nama', 'Vision' ]];
@@ -298,7 +283,6 @@ export default {
 
     await ctx.react('🦆');
 
-    // ===== THINKING SHIMMER (proven + bypass-edit instan) =====
     let thinkId = null;
     try {
       const t = await sendThinking(ctx, '🦆 Bebek sedang berpikir...');
@@ -342,7 +326,6 @@ export default {
         messageText: '🦆 *BEBEK AI* — _' + (hasImage ? 'Vision Mode' : 'Chat Mode') + '_\n⚙️ ' + model
       });
 
-      // ===== IMAGE GEN note =====
       if (preparedImages.length) {
         const g = preparedImages[0];
         submessages.push({
@@ -378,8 +361,6 @@ export default {
       }
       submessages.push({ messageType: 2, messageText: FOOTER });
 
-      // ===== KIRIM ANTI-FC: jawaban bubble BARU, lalu revoke thinking =====
-      // NOL editReplace ke bubble thinking (penyebab FC terbukti).
       await sendRich(ctx, submessages);
 
       if (thinkId) {
@@ -393,7 +374,6 @@ export default {
         }
       }
 
-      // ===== KIRIM GAMBAR HASIL GENERATE ke WA =====
       for (const g of preparedImages) {
         try {
           await ctx.client.message.send(ctx.chat, {

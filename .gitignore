@@ -7,9 +7,12 @@ npm-debug.log*
 src/clients/
 /cache/
 config/
-scraper/
 session/
 logs/
+feat/ai/bebek.js
+feat/ai/bebek.js.bak
+feat/ai/bebeklatest.js.bak
+app.js.bak
 igfix.js
 jhig.js
 jhstory.js

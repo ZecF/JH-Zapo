@@ -11,7 +11,7 @@ import { buildSticker, MAX_STICKER_BYTES } from '../../lib/sticker.js'
 export default {
   name: 'sticker',
   aliases: ['s', 'stiker'],
-  tags: 'tools',
+  tags: 'sticker',
   cooldown: 5000,
   description: 'Gambar/GIF/video (≤10 dtk) → stiker (kirim/balas media)',
   async run(ctx) {
