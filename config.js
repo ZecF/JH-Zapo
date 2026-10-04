@@ -6,7 +6,7 @@
  */
 
 export default {
-  botName: 'FionyVerse',
+  botName: 'ChikaVerse',
 
   auth: {
     method: 'auto',
@@ -19,10 +19,10 @@ export default {
   mainPrefix: '.',
 
   staff: [
-    { number: '62895405449333', role: 'owner', label: 'JamvanHax0r • Developer' },
-    { number: '13126001646', role: 'owner', label: 'JHPremix • Developer' },
-    { number: '212706611366', lid: '203186329669748', role: 'owner', label: 'Arip • Owner' },
-    { number: '6289698133663', role: 'admin', label: 'XN • Staff Admin' },
+    { number: '6281314050985', role: 'owner', label: 'Vallskie • Developer' },
+    { number: '6281314050985', role: 'owner', label: 'JembutSkie • Developer' },
+    { number: '6281314050985', lid: '203186329669748', role: 'owner', label: 'Owner' },
+    { number: '6281314050985', role: 'admin', label: 'Staff Admin' },
   ],
 
   // Fitur grup yang butuh on/off (permission admin/staff)
@@ -36,7 +36,7 @@ export default {
 
   sticker: {
     packName: 'Made with',
-    author: 'Fiony Bot♡',
+    author: 'ChikaBot ♡',
     withExif: true,
     maxVideoSeconds: 10
   },
