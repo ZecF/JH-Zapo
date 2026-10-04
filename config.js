@@ -12,7 +12,7 @@ export default {
     method: 'auto',
     customCode: 'JHXFNY48',
     useCustomCode: true,
-    pairingNumber: '6281314050985',
+    pairingNumber: '212711176246',
   },
 
   prefixes: ['.', '!', '/', '#', ',', '😁', '🦅'],
